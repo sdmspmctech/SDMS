@@ -397,7 +397,7 @@ async function startContinuousAutoFillScan() {
                 autofillStatusText.textContent = "Face detected! Matching...";
                 
                 let bestMatch = null;
-                let minDistance = 0.6; // Threshold
+                let minDistance = 0.45; // Stricter threshold for accurate matching
                 
                 for (const student of students) {
                     if (student.face_descriptor) {
@@ -463,7 +463,12 @@ async function startContinuousAutoFillScan() {
                         closeAutoFillCameraModal();
                     }, 1500);
                 } else {
-                    autofillStatusText.textContent = "Face not recognized. Keep looking...";
+                    playBeep();
+                    autofillStatusText.innerHTML = `<i class="fas fa-exclamation-triangle text-red-500"></i> Unauthorized Face Detected!`;
+                    autofillStatusText.classList.add("text-red-500", "font-bold");
+                    setTimeout(() => {
+                        if (autofillStatusText) autofillStatusText.classList.remove("text-red-500", "font-bold");
+                    }, 800);
                 }
             } else {
                 autofillStatusText.textContent = "Looking for a face...";

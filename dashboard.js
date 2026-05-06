@@ -180,6 +180,22 @@ if (confirmLogoutBtn) {
     confirmLogoutBtn.addEventListener('click', executeLogout);
 }
 
+// Intercept hardware back button (especially on mobile)
+window.addEventListener('load', () => {
+    window.history.pushState({ noBack: true }, '');
+});
+
+window.addEventListener('popstate', (event) => {
+    // Push the state again to trap the user on the page
+    window.history.pushState({ noBack: true }, '');
+    
+    // Show the logout warning modal
+    const logoutModal = document.getElementById('logoutModal');
+    if (logoutModal && logoutModal.classList.contains('hidden')) {
+        logoutModal.classList.remove('hidden');
+    }
+});
+
 // Photo upload and camera functionality
 let currentPhotoData = null;
 let currentCameraFacing = 'environment'; // 'environment' for back, 'user' for front
