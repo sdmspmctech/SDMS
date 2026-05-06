@@ -110,7 +110,8 @@ if (captureRegisterFaceBtn) {
         registerFaceStatus.className = "mt-2 text-center text-sm font-medium p-2 rounded-lg w-full bg-yellow-100 text-yellow-800";
         
         try {
-            const detection = await faceapi.detectSingleFace(registerVideo)
+            // Optimize for mobile by lowering confidence threshold slightly (default is 0.5)
+            const detection = await faceapi.detectSingleFace(registerVideo, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.4 }))
                                            .withFaceLandmarks()
                                            .withFaceDescriptor();
             
@@ -318,7 +319,8 @@ async function startContinuousAutoFillScan() {
         if (!autofillVideo.srcObject || autofillVideo.paused) return;
         
         try {
-            const detection = await faceapi.detectSingleFace(autofillVideo)
+            // Using a slightly lower confidence for real-time mobile scanning
+            const detection = await faceapi.detectSingleFace(autofillVideo, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.4 }))
                                            .withFaceLandmarks()
                                            .withFaceDescriptor();
                                            
