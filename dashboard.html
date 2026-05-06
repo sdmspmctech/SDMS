@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PMC Tech - Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="supabase-client.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Include face-api.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    animation: {
+                        'fade-in': 'fadeIn 0.5s ease-in',
+                        'slide-in-right': 'slideInRight 0.5s ease-out',
+                        'slide-out-right': 'slideOutRight 0.5s ease-out'
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0', transform: 'translateY(20px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' }
+                        },
+                        slideInRight: {
+                            '0%': { transform: 'translateX(100%)', opacity: '0' },
+                            '100%': { transform: 'translateX(0)', opacity: '1' }
+                        },
+                        slideOutRight: {
+                            '0%': { transform: 'translateX(0)', opacity: '1' },
+                            '100%': { transform: 'translateX(100%)', opacity: '0' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-gray-100 to-gray-300 leading-relaxed">
+    <!-- Navigation Header -->
+    <nav class="bg-gradient-to-r from-purple-600 to-purple-700 py-3 md:py-4 shadow-lg sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-4 md:px-8 flex justify-between items-center">
+            <div class="flex items-center bg-white p-1 rounded-xl shadow-inner mr-4">
+                <img src="img/pmc.jpg" alt="PMC Tech Logo" class="h-10 md:h-12 w-auto rounded-lg">
+            </div>
+            
+            <!-- Desktop Navigation -->
+            <ul class="hidden lg:flex list-none gap-2 xl:gap-4 items-center nav-menu">
+                <li>
+                    <a href="#" class="text-white no-underline font-bold px-3 py-1.5 rounded-xl transition-all duration-300 flex flex-col items-center gap-0.5 nav-link active bg-white/20 text-[11px] xl:text-xs uppercase tracking-wider" data-page="home">
+                        <i class="fas fa-home text-lg"></i> Home
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="text-white no-underline font-bold px-3 py-1.5 rounded-xl transition-all duration-300 flex flex-col items-center gap-0.5 nav-link hover:bg-white/10 text-[11px] xl:text-xs uppercase tracking-wider" data-page="pending">
+                        <i class="fas fa-clock text-lg"></i> Pending
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="text-white no-underline font-bold px-3 py-1.5 rounded-xl transition-all duration-300 flex flex-col items-center gap-0.5 nav-link hover:bg-white/10 text-[11px] xl:text-xs uppercase tracking-wider text-center" data-page="register-student">
+                        <i class="fas fa-user-plus text-lg"></i> Register
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="text-white no-underline font-bold px-3 py-1.5 rounded-xl transition-all duration-300 flex flex-col items-center gap-0.5 nav-link hover:bg-white/10 text-[11px] xl:text-xs uppercase tracking-wider text-center" data-page="registered-students">
+                        <i class="fas fa-book text-lg"></i> Dairy
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="text-white no-underline font-bold px-3 py-1.5 rounded-xl transition-all duration-300 flex flex-col items-center gap-0.5 nav-link hover:bg-white/10 text-[11px] xl:text-xs uppercase tracking-wider" data-page="solved">
+                        <i class="fas fa-check-circle text-lg"></i> Solved
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="text-white no-underline font-bold px-3 py-1.5 rounded-xl transition-all duration-300 flex flex-col items-center gap-0.5 nav-link hover:bg-white/10 text-[11px] xl:text-xs uppercase tracking-wider" data-page="book">
+                        <i class="fas fa-plus-circle text-lg"></i> Book
+                    </a>
+                </li>
+                <li class="ml-2">
+                    <a href="#" class="text-white no-underline font-bold px-4 py-1.5 rounded-xl transition-all duration-300 flex flex-col items-center gap-0.5 bg-red-500 hover:bg-red-600 shadow-md hover:shadow-red-500/30 text-[11px] xl:text-xs uppercase tracking-wider" id="logoutBtn">
+                        <i class="fas fa-sign-out-alt text-lg"></i> Logout
+                    </a>
+                </li>
+            </ul>
+            
+            <!-- Mobile Hamburger -->
+            <div class="lg:hidden flex flex-col cursor-pointer hamburger p-2" id="hamburger">
+                <span class="w-6 h-0.5 bg-white my-0.5 transition-all duration-300 bar"></span>
+                <span class="w-6 h-0.5 bg-white my-0.5 transition-all duration-300 bar"></span>
+                <span class="w-6 h-0.5 bg-white my-0.5 transition-all duration-300 bar"></span>
+            </div>
+        </div>
+        
+        <!-- Mobile Menu Overlay -->
+        <div class="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40 hidden" id="mobileOverlay"></div>
+        
+        <!-- Mobile Menu -->
+        <div class="lg:hidden fixed right-0 top-0 h-full w-80 max-w-[85vw] bg-gradient-to-b from-purple-600 to-purple-700 transform translate-x-full transition-transform duration-300 z-50 shadow-2xl" id="mobileMenu">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-8">
+                    <div class="flex items-center">
+                        <img src="img/pmc.jpg" alt="PMC Tech Logo" class="h-10 w-auto rounded-lg">
+                        <span class="ml-3 text-white font-semibold text-lg">SDMS</span>
+                    </div>
+                    <button class="text-white text-2xl" id="closeMobileMenu">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <ul class="space-y-4">
+                    <li>
+                        <a href="#" class="flex items-center text-white no-underline font-medium px-4 py-3 rounded-lg transition-all duration-300 nav-link bg-white/10 border border-white/20" data-page="home">
+                            <i class="fas fa-home mr-3 w-5"></i> Home
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" class="flex items-center text-white no-underline font-medium px-4 py-3 rounded-lg transition-all duration-300 nav-link hover:bg-white/10 border border-transparent hover:border-white/20" data-page="pending">
+                            <i class="fas fa-clock mr-3 w-5"></i> Pending Issues
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" class="flex items-center text-white no-underline font-medium px-4 py-3 rounded-lg transition-all duration-300 nav-link hover:bg-white/10 border border-transparent hover:border-white/20" data-page="register-student">
+                            <i class="fas fa-user-plus mr-3 w-5"></i> Register Student
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" class="flex items-center text-white no-underline font-medium px-4 py-3 rounded-lg transition-all duration-300 nav-link hover:bg-white/10 border border-transparent hover:border-white/20" data-page="registered-students">
+                            <i class="fas fa-book mr-3 w-5"></i> Student Dairy
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" class="flex items-center text-white no-underline font-medium px-4 py-3 rounded-lg transition-all duration-300 nav-link hover:bg-white/10 border border-transparent hover:border-white/20" data-page="solved">
+                            <i class="fas fa-check-circle mr-3 w-5"></i> Solved Issues
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" class="flex items-center text-white no-underline font-medium px-4 py-3 rounded-lg transition-all duration-300 nav-link hover:bg-white/10 border border-transparent hover:border-white/20" data-page="book">
+                            <i class="fas fa-plus mr-3 w-5"></i> Book New Issue
+                        </a>
+                    </li>
+                    <li class="pt-4 border-t border-white/20">
+                        <a href="#" class="flex items-center text-white no-underline font-medium px-4 py-3 rounded-lg transition-all duration-300 nav-link bg-red-500/80 hover:bg-red-600 border border-red-400/50" id="logoutBtnMobile">
+                            <i class="fas fa-sign-out-alt mr-3 w-5"></i> Logout
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="py-4 md:py-8 min-h-screen">
+        <div class="max-w-6xl mx-auto px-4 md:px-8">
+            <!-- Home Page -->
+            <div id="home" class="page block animate-fade-in">
+                <div class="mb-6">
+                    <h1 class="text-2xl md:text-3xl font-bold text-purple-600 text-center mb-2">Student Discipline Management System</h1>
+                    <p class="text-gray-600 text-center mb-8">Manage student Issues efficiently</p>
+                </div>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3 md:gap-4 lg:gap-6">
+                    <button class="bg-gradient-to-br from-orange-500 to-orange-600 border-none rounded-xl p-4 md:p-6 text-white font-semibold cursor-pointer transition-all duration-300 flex flex-col items-center gap-2 md:gap-3 shadow-lg shadow-orange-500/30 hover:-translate-y-1 md:hover:-translate-y-2 hover:shadow-xl hover:shadow-orange-500/40 active:scale-95 touch-manipulation" data-target="book">
+                        <i class="fas fa-calendar-plus text-2xl md:text-3xl lg:text-4xl"></i>
+                        <span class="text-base md:text-lg lg:text-xl">Book New Issue</span>
+                        <span class="text-xs md:text-sm opacity-80">File a new student Issue</span>
+                    </button>
+                    
+                    <button class="bg-gradient-to-br from-purple-600 to-purple-700 border-none rounded-xl p-4 md:p-6 text-white font-semibold cursor-pointer transition-all duration-300 flex flex-col items-center gap-2 md:gap-3 shadow-lg shadow-purple-600/30 hover:-translate-y-1 md:hover:-translate-y-2 hover:shadow-xl hover:shadow-purple-600/40 active:scale-95 touch-manipulation" data-target="pending">
+                        <i class="fas fa-clock text-2xl md:text-3xl lg:text-4xl"></i>
+                        <span class="text-base md:text-lg lg:text-xl">Pending Issues</span>
+                        <span class="text-xs md:text-sm opacity-80">View pending student Issues</span>
+                    </button>
+                    
+                    <button class="bg-gradient-to-br from-teal-500 to-teal-600 border-none rounded-xl p-4 md:p-6 text-white font-semibold cursor-pointer transition-all duration-300 flex flex-col items-center gap-2 md:gap-3 shadow-lg shadow-teal-500/30 hover:-translate-y-1 md:hover:-translate-y-2 hover:shadow-xl hover:shadow-teal-500/40 active:scale-95 touch-manipulation" data-target="register-student">
+                        <i class="fas fa-user-plus text-2xl md:text-3xl lg:text-4xl"></i>
+                        <span class="text-base md:text-lg lg:text-xl">Register Student</span>
+                        <span class="text-xs md:text-sm opacity-80">AI Face Registration</span>
+                    </button>
+                    
+                    <button class="bg-gradient-to-br from-green-600 to-green-700 border-none rounded-xl p-4 md:p-6 text-white font-semibold cursor-pointer transition-all duration-300 flex flex-col items-center gap-2 md:gap-3 shadow-lg shadow-green-600/30 hover:-translate-y-1 md:hover:-translate-y-2 hover:shadow-xl hover:shadow-green-600/40 active:scale-95 touch-manipulation" data-target="solved">
+                        <i class="fas fa-check-circle text-2xl md:text-3xl lg:text-4xl"></i>
+                        <span class="text-base md:text-lg lg:text-xl">Solved Issues</span>
+                        <span class="text-xs md:text-sm opacity-80">View resolved Issues</span>
+                    </button>
+                    
+                    <button class="bg-gradient-to-br from-blue-600 to-blue-700 border-none rounded-xl p-4 md:p-6 text-white font-semibold cursor-pointer transition-all duration-300 flex flex-col items-center gap-2 md:gap-3 shadow-lg shadow-blue-600/30 hover:-translate-y-1 md:hover:-translate-y-2 hover:shadow-xl hover:shadow-blue-600/40 active:scale-95 touch-manipulation" data-target="history">
+                        <i class="fas fa-history text-2xl md:text-3xl lg:text-4xl"></i>
+                        <span class="text-base md:text-lg lg:text-xl">Issue History</span>
+                        <span class="text-xs md:text-sm opacity-80">View Issue timeline</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Pending Issue Page -->
+            <div id="pending" class="page hidden animate-fade-in">
+                <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 md:mb-8 pb-4 border-b-2 border-purple-600">
+                    <h2 class="text-purple-600 text-2xl md:text-3xl flex items-center gap-2 mb-4 lg:mb-0">
+                        <i class="fas fa-clock"></i> Pending Issues
+                    </h2>
+                    <div class="flex flex-col sm:flex-row gap-2 sm:gap-4 w-full lg:w-auto">
+                        <button class="bg-gradient-to-r from-green-500 to-green-600 border-none px-4 md:px-6 py-2 md:py-3 rounded-lg text-white cursor-pointer transition-all duration-300 flex items-center justify-center gap-2 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-green-500/20 active:scale-95 touch-manipulation text-sm md:text-base" onclick="exportPendingToExcel()">
+                            <i class="fas fa-file-excel"></i> <span class="hidden sm:inline">Export to Excel</span>
+                        </button>
+                        <button class="bg-gradient-to-r from-blue-500 to-blue-600 border-none px-4 md:px-6 py-2 md:py-3 rounded-lg text-white cursor-pointer transition-all duration-300 flex items-center justify-center gap-2 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-blue-500/20 active:scale-95 touch-manipulation text-sm md:text-base" onclick="loadPendingCases()">
+                            <i class="fas fa-refresh"></i> <span class="hidden sm:inline">Refresh</span>
+                        </button>
+                        <button class="bg-gradient-to-r from-gray-500 to-gray-600 border-none px-4 md:px-6 py-2 md:py-3 rounded-lg text-white cursor-pointer transition-all duration-300 flex items-center justify-center gap-2 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/20 back-btn active:scale-95 touch-manipulation text-sm md:text-base" data-target="home">
+                            <i class="fas fa-arrow-left"></i> <span class="hidden sm:inline">Back to</span> Home
+                        </button>
+                    </div>
+                </div>
+                <!-- Search Bar -->
+                <div class="mb-4 md:mb-6">
+                    <div class="relative">
+                        <input type="text" id="pendingSearchInput" placeholder="Search by name, registration number, department..." class="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg text-base transition-all duration-300 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 bg-white touch-manipulation">
+                        <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                        <button class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors duration-300" onclick="clearSearch('pendingSearchInput')" id="clearPendingSearch" style="display: none;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="bg-white rounded-2xl p-4 md:p-6 lg:p-8 shadow-xl">
+                    <div id="pendingCasesContainer" class="space-y-4 case-list">
+                        <!-- Issues will be loaded here dynamically -->
+                        <div class="text-center py-8 text-gray-500">
+                            <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                            <p>Loading pending Issues...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Solved Issue Page -->
+            <div id="solved" class="page hidden animate-fade-in">
+                <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 md:mb-8 pb-4 border-b-2 border-purple-600">
+                    <h2 class="text-purple-600 text-2xl md:text-3xl flex items-center gap-2 mb-4 lg:mb-0">
+                        <i class="fas fa-check-circle"></i> Solved Issues
+                    </h2>
+                    <div class="flex flex-col sm:flex-row gap-2 sm:gap-4 w-full lg:w-auto">
+                        <button class="bg-gradient-to-r from-green-500 to-green-600 border-none px-4 md:px-6 py-2 md:py-3 rounded-lg text-white cursor-pointer transition-all duration-300 flex items-center justify-center gap-2 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-green-500/20 active:scale-95 touch-manipulation text-sm md:text-base" onclick="exportSolvedToExcel()">
+                            <i class="fas fa-file-excel"></i> <span class="hidden sm:inline">Export to Excel</span>
+                        </button>
+                        <button class="bg-gradient-to-r from-blue-500 to-blue-600 border-none px-4 md:px-6 py-2 md:py-3 rounded-lg text-white cursor-pointer transition-all duration-300 flex items-center justify-center gap-2 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-blue-500/20 active:scale-95 touch-manipulation text-sm md:text-base" onclick="loadSolvedCases()">
+                            <i class="fas fa-refresh"></i> <span class="hidden sm:inline">Refresh</span>
+                        </button>
+                        <button class="bg-gradient-to-r from-gray-500 to-gray-600 border-none px-4 md:px-6 py-2 md:py-3 rounded-lg text-white cursor-pointer transition-all duration-300 flex items-center justify-center gap-2 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/20 back-btn active:scale-95 touch-manipulation text-sm md:text-base" data-target="home">
+                            <i class="fas fa-arrow-left"></i> <span class="hidden sm:inline">Back to</span> Home
+                        </button>
+                    </div>
+                </div>
+                <!-- Search Bar -->
+                <div class="mb-4 md:mb-6">
+                    <div class="relative">
+                        <input type="text" id="solvedSearchInput" placeholder="Search by name, registration number, department..." class="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg text-base transition-all duration-300 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 bg-white touch-manipulation">
+                        <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                        <button class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors duration-300" onclick="clearSearch('solvedSearchInput')" id="clearSolvedSearch" style="display: none;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="bg-white rounded-2xl p-4 md:p-6 lg:p-8 shadow-xl">
+                    <div id="solvedCasesContainer" class="space-y-4 case-list">
+                        <!-- Cases will be loaded here dynamically -->
+                        <div class="text-center py-8 text-gray-500">
+                            <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                            <p>Loading solved Issues...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- History Page -->
+            <div id="history" class="page hidden animate-fade-in">
+                <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 md:mb-8 pb-4 border-b-2 border-purple-600">
+                    <h2 class="text-purple-600 text-2xl md:text-3xl flex items-center gap-2 mb-4 lg:mb-0">
+                        <i class="fas fa-history"></i> Issue History
+                    </h2>
+                    <div class="flex flex-col sm:flex-row gap-2 sm:gap-4 w-full lg:w-auto">
+                        <button class="bg-gradient-to-r from-green-500 to-green-600 border-none px-4 md:px-6 py-2 md:py-3 rounded-lg text-white cursor-pointer transition-all duration-300 flex items-center justify-center gap-2 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-green-500/20 active:scale-95 touch-manipulation text-sm md:text-base" onclick="exportToExcel()">
+                            <i class="fas fa-file-excel"></i> <span class="hidden sm:inline">Export to Excel</span>
+                        </button>
+                        <button class="bg-gradient-to-r from-blue-500 to-blue-600 border-none px-4 md:px-6 py-2 md:py-3 rounded-lg text-white cursor-pointer transition-all duration-300 flex items-center justify-center gap-2 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-blue-500/20 active:scale-95 touch-manipulation text-sm md:text-base" onclick="loadCaseHistory()">
+                            <i class="fas fa-refresh"></i> <span class="hidden sm:inline">Refresh</span>
+                        </button>
+                        <button class="bg-gradient-to-r from-gray-500 to-gray-600 border-none px-4 md:px-6 py-2 md:py-3 rounded-lg text-white cursor-pointer transition-all duration-300 flex items-center justify-center gap-2 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/20 back-btn active:scale-95 touch-manipulation text-sm md:text-base" data-target="home">
+                            <i class="fas fa-arrow-left"></i> <span class="hidden sm:inline">Back to</span> Home
+                        </button>
+                    </div>
+                </div>
+                <!-- Search Bar -->
+                <div class="mb-4 md:mb-6">
+                    <div class="relative">
+                        <input type="text" id="historySearchInput" placeholder="Search by name, registration number, department..." class="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg text-base transition-all duration-300 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 bg-white touch-manipulation">
+                        <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                        <button class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors duration-300" onclick="clearSearch('historySearchInput')" id="clearHistorySearch" style="display: none;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="bg-white rounded-2xl p-4 md:p-6 lg:p-8 shadow-xl">
+                    <div id="historyCasesContainer" class="space-y-4 case-list">
+                        <!-- Issues will be loaded here dynamically -->
+                        <div class="text-center py-8 text-gray-500">
+                            <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                            <p>Loading Issue history...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Student Registration Page -->
+            <div id="register-student" class="page hidden animate-fade-in">
+                <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 md:mb-8 pb-4 border-b-2 border-purple-600">
+                    <h2 class="text-purple-600 text-2xl md:text-3xl flex items-center gap-2 mb-4 lg:mb-0">
+                        <i class="fas fa-user-plus"></i> Register Student (AI Face)
+                    </h2>
+                    <button class="bg-gradient-to-r from-gray-500 to-gray-600 border-none px-4 md:px-6 py-2 md:py-3 rounded-lg text-white cursor-pointer transition-all duration-300 flex items-center justify-center gap-2 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/20 back-btn active:scale-95 touch-manipulation text-sm md:text-base w-full sm:w-auto" data-target="home">
+                        <i class="fas fa-arrow-left"></i> <span class="hidden sm:inline">Back to</span> Home
+                    </button>
+                </div>
+                <div class="bg-white rounded-2xl p-4 md:p-6 lg:p-8 shadow-xl max-w-4xl mx-auto">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <!-- AI Face Scan Section -->
+                        <div class="flex flex-col gap-4 items-center border-r-0 lg:border-r-2 border-gray-100 pr-0 lg:pr-8">
+                            <h3 class="text-xl font-semibold text-gray-700 text-center w-full pb-2 border-b">1. Scan Face</h3>
+                            <div class="relative w-full max-w-sm aspect-video bg-black rounded-xl overflow-hidden shadow-inner flex items-center justify-center">
+                                <video id="registerVideo" class="w-full h-full object-cover hidden" autoplay muted playsinline></video>
+                                <canvas id="registerCanvas" class="absolute inset-0 w-full h-full object-cover pointer-events-none hidden"></canvas>
+                                <div id="registerCameraPlaceholder" class="text-gray-400 flex flex-col items-center">
+                                    <i class="fas fa-camera text-4xl mb-2"></i>
+                                    <span>Camera Off</span>
+                                </div>
+                                <div id="registerScanningOverlay" class="absolute inset-0 bg-blue-500/20 flex flex-col items-center justify-center hidden">
+                                    <div class="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                                    <span class="text-white font-semibold mt-2 drop-shadow-md">Scanning Face...</span>
+                                </div>
+                            </div>
+                            <div class="flex gap-3 w-full justify-center">
+                                <button type="button" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg transition-all flex items-center gap-2 shadow-md active:scale-95" id="startRegisterCameraBtn">
+                                    <i class="fas fa-video"></i> Start Camera
+                                </button>
+                                <button type="button" class="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg transition-all flex items-center gap-2 shadow-md active:scale-95 hidden" id="captureRegisterFaceBtn">
+                                    <i class="fas fa-id-badge"></i> Capture & Extract
+                                </button>
+                            </div>
+                            <div id="registerFaceStatus" class="mt-2 text-center text-sm font-medium p-2 rounded-lg w-full"></div>
+                        </div>
+
+                        <!-- Details Form Section -->
+                        <div class="flex flex-col gap-4">
+                            <h3 class="text-xl font-semibold text-gray-700 text-center w-full pb-2 border-b">2. Student Details</h3>
+                            <form id="registerStudentForm" class="space-y-4">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div class="flex flex-col gap-1">
+                                        <label class="text-sm font-medium text-gray-700">Name *</label>
+                                        <input type="text" id="regStudentName" required placeholder="Full Name" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-200 focus:border-blue-500 outline-none transition-all bg-gray-50">
+                                    </div>
+                                    <div class="flex flex-col gap-1">
+                                        <label class="text-sm font-medium text-gray-700">Registration No *</label>
+                                        <input type="text" id="regStudentRegNo" required placeholder="Reg No" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-200 focus:border-blue-500 outline-none transition-all bg-gray-50">
+                                    </div>
+                                    <div class="flex flex-col gap-1">
+                                        <label class="text-sm font-medium text-gray-700">Department *</label>
+                                        <select id="regStudentDept" required class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-200 focus:border-blue-500 outline-none transition-all bg-gray-50">
+                                            <option value="" disabled selected>Select</option>
+                                            <option value="AERO">AERO</option><option value="AIDS">AIDS</option><option value="AIML">AIML</option>
+                                            <option value="CHEM">CHEM</option><option value="CIVIL">CIVIL</option><option value="CSBS">CSBS</option>
+                                            <option value="CSE">CSE</option><option value="ECE">ECE</option><option value="EEE">EEE</option>
+                                            <option value="IT">IT</option><option value="MBA">MBA</option><option value="MCA">MCA</option>
+                                            <option value="MCO">MCO</option><option value="MECH">MECH</option><option value="S&H V1">S&H V1</option>
+                                        </select>
+                                    </div>
+                                    <div class="flex flex-col gap-1">
+                                        <label class="text-sm font-medium text-gray-700">Year *</label>
+                                        <select id="regStudentYear" required class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-200 focus:border-blue-500 outline-none transition-all bg-gray-50">
+                                            <option value="">Select</option>
+                                            <option value="1">1st Year</option><option value="2">2nd Year</option>
+                                            <option value="3">3rd Year</option><option value="4">4th Year</option>
+                                        </select>
+                                    </div>
+                                    <div class="flex flex-col gap-1">
+                                        <label class="text-sm font-medium text-gray-700">Section *</label>
+                                        <select id="regStudentSection" required class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-200 focus:border-blue-500 outline-none transition-all bg-gray-50">
+                                            <option value="">Select</option>
+                                            <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option>
+                                        </select>
+                                    </div>
+                                    <div class="flex flex-col gap-1">
+                                        <label class="text-sm font-medium text-gray-700">Parent's Contact *</label>
+                                        <input type="tel" id="regStudentParentNo" required placeholder="Parent No" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-200 focus:border-blue-500 outline-none transition-all bg-gray-50">
+                                    </div>
+                                </div>
+                                <button type="submit" class="w-full bg-gradient-to-r from-teal-500 to-teal-600 text-white font-semibold py-3 rounded-lg shadow-md hover:shadow-lg hover:-translate-y-0.5 active:scale-95 transition-all mt-4 flex justify-center items-center gap-2" id="saveStudentBtn" disabled>
+                                    <i class="fas fa-save"></i> Save Student Data
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Student Dairy Page -->
+            <div id="registered-students" class="page hidden animate-fade-in">
+                <!-- Header -->
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                    <div>
+                        <h2 class="text-2xl md:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-indigo-600 flex items-center gap-3">
+                            <i class="fas fa-book"></i> Student Dairy
+                        </h2>
+                        <p class="text-gray-500 text-sm mt-1">Manage and view all registered students</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2 w-full md:w-auto">
+                        <button onclick="document.getElementById('bulkUploadInput').click()" class="flex-1 md:flex-none bg-amber-500 hover:bg-amber-600 text-white px-4 py-2.5 rounded-xl text-sm font-bold shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2">
+                            <i class="fas fa-file-upload"></i> Bulk Upload
+                        </button>
+                        <input type="file" id="bulkUploadInput" accept=".csv" class="hidden" onchange="handleBulkUpload(event)">
+                        
+                        <button onclick="loadRegisteredStudents()" class="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-4 py-2.5 rounded-xl text-sm font-bold transition-all active:scale-95 flex items-center justify-center gap-2">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                        
+                        <button class="bg-gray-100 text-gray-700 hover:bg-gray-200 px-4 py-2.5 rounded-xl text-sm font-bold transition-all active:scale-95 back-btn flex items-center justify-center gap-2" data-target="home">
+                            <i class="fas fa-arrow-left"></i> Back
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Toolbar (Search, Filters, Stats) -->
+                <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-6 flex flex-col lg:flex-row items-stretch lg:items-center gap-4">
+                    <div class="relative flex-1">
+                        <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                        <input type="text" id="studentSearchInput" placeholder="Search by name, ID or reg number..." class="w-full pl-11 pr-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-purple-200 text-sm transition-all" oninput="filterStudentTable()">
+                    </div>
+                    
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        <select id="filterDept" class="px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-purple-200 text-sm outline-none cursor-pointer" onchange="filterStudentTable()">
+                            <option value="">All Departments</option>
+                            <option>AERO</option><option>AIDS</option><option>AIML</option>
+                            <option>CHEM</option><option>CIVIL</option><option>CSBS</option>
+                            <option>CSE</option><option>ECE</option><option>EEE</option>
+                            <option>IT</option><option>MBA</option><option>MCA</option>
+                            <option>MCO</option><option>MECH</option><option>S&H V1</option>
+                            <option>S&H V2</option><option>S&H V3</option><option>S&H V4</option>
+                            <option>S&H V5</option><option>S&H V6</option>
+                        </select>
+                        
+                        <select id="filterYear" class="px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-purple-200 text-sm outline-none cursor-pointer" onchange="filterStudentTable()">
+                            <option value="">All Years</option>
+                            <option value="1">1st Year</option>
+                            <option value="2">2nd Year</option>
+                            <option value="3">3rd Year</option>
+                            <option value="4">4th Year</option>
+                        </select>
+                    </div>
+
+                    <div id="studentStatsBar" class="lg:pl-4 lg:border-l border-gray-200 whitespace-nowrap text-sm text-gray-500 font-medium"></div>
+                </div>
+
+                <!-- Table Container -->
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-gray-50/50 text-gray-600 border-b border-gray-100">
+                                    <th class="p-4 font-bold text-xs uppercase tracking-wider text-center w-20">Photo</th>
+                                    <th class="p-4 font-bold text-xs uppercase tracking-wider">Reg No</th>
+                                    <th class="p-4 font-bold text-xs uppercase tracking-wider">Student Name</th>
+                                    <th class="p-4 font-bold text-xs uppercase tracking-wider">Department</th>
+                                    <th class="p-4 font-bold text-xs uppercase tracking-wider text-center">Batch Info</th>
+                                    <th class="p-4 font-bold text-xs uppercase tracking-wider">Parent Contact</th>
+                                    <th class="p-4 font-bold text-xs uppercase tracking-wider text-center">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="registeredStudentsTableBody" class="divide-y divide-gray-50">
+                                <tr><td colspan="7" class="p-12 text-center text-gray-400">
+                                    <div class="flex flex-col items-center gap-3">
+                                        <i class="fas fa-spinner fa-spin text-2xl text-purple-500"></i>
+                                        <p class="font-medium">Fetching students list...</p>
+                                    </div>
+                                </td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Edit Student Modal -->
+            <div id="editStudentModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 hidden">
+                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                    <div class="flex justify-between items-center p-5 border-b border-gray-100">
+                        <h3 class="text-lg font-bold text-purple-700 flex items-center gap-2"><i class="fas fa-user-edit"></i> Edit Student</h3>
+                        <button onclick="closeEditStudentModal()" class="text-gray-400 hover:text-red-500 transition-colors text-xl"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="p-5 space-y-4">
+                        <input type="hidden" id="editStudentId">
+
+                        <!-- Face Scan Section -->
+                        <div class="bg-indigo-50 rounded-xl p-4 border border-indigo-100">
+                            <p class="text-sm font-semibold text-indigo-700 mb-3"><i class="fas fa-camera mr-1"></i> Face Photo (optional — rescan to update)</p>
+                            <div class="flex items-center gap-4">
+                                <div class="w-20 h-20 rounded-full overflow-hidden border-4 border-indigo-300 bg-gray-200 flex items-center justify-center flex-shrink-0" id="editPhotoPreview">
+                                    <i class="fas fa-user text-gray-400 text-2xl"></i>
+                                </div>
+                                <div class="flex flex-col gap-2 flex-1">
+                                    <button type="button" id="editStartCameraBtn" onclick="startEditCamera()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all active:scale-95 flex items-center gap-2">
+                                        <i class="fas fa-video"></i> Start Camera
+                                    </button>
+                                    <button type="button" id="editCaptureFaceBtn" onclick="captureEditFace()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all active:scale-95 hidden flex items-center gap-2">
+                                        <i class="fas fa-camera"></i> Capture Face
+                                    </button>
+                                    <p id="editFaceStatus" class="text-xs text-gray-500"></p>
+                                </div>
+                            </div>
+                            <video id="editCameraVideo" class="w-full rounded-lg mt-3 hidden" autoplay muted playsinline></video>
+                        </div>
+
+                        <!-- Form Fields -->
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="flex flex-col gap-1 col-span-2">
+                                <label class="text-sm font-medium text-gray-700">Full Name *</label>
+                                <input type="text" id="editStudentName" placeholder="Student Name" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-200 outline-none text-sm">
+                            </div>
+                            <div class="flex flex-col gap-1 col-span-2">
+                                <label class="text-sm font-medium text-gray-700">Reg No *</label>
+                                <input type="text" id="editStudentRegNo" placeholder="Registration Number" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-200 outline-none text-sm">
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <label class="text-sm font-medium text-gray-700">Department *</label>
+                                <select id="editStudentDept" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-200 outline-none text-sm">
+                                    <option value="">Select</option>
+                                    <option>AERO</option><option>AIDS</option><option>AIML</option>
+                                    <option>CHEM</option><option>CIVIL</option><option>CSBS</option>
+                                    <option>CSE</option><option>ECE</option><option>EEE</option>
+                                    <option>IT</option><option>MBA</option><option>MCA</option>
+                                    <option>MCO</option><option>MECH</option><option>S&H V1</option>
+                                    <option>S&H V2</option><option>S&H V3</option>
+                                </select>
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <label class="text-sm font-medium text-gray-700">Year *</label>
+                                <select id="editStudentYear" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-200 outline-none text-sm">
+                                    <option value="">Select</option>
+                                    <option value="1">1st Year</option><option value="2">2nd Year</option>
+                                    <option value="3">3rd Year</option><option value="4">4th Year</option>
+                                </select>
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <label class="text-sm font-medium text-gray-700">Section *</label>
+                                <select id="editStudentSection" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-200 outline-none text-sm">
+                                    <option value="">Select</option>
+                                    <option>A</option><option>B</option><option>C</option><option>D</option>
+                                </select>
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <label class="text-sm font-medium text-gray-700">Parent's No *</label>
+                                <input type="tel" id="editStudentParentNo" placeholder="Parent Contact" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-200 outline-none text-sm">
+                            </div>
+                        </div>
+                        <button onclick="saveEditStudent()" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold py-3 rounded-xl shadow-md hover:shadow-lg hover:-translate-y-0.5 active:scale-95 transition-all flex items-center justify-center gap-2">
+                            <i class="fas fa-save"></i> Save Changes
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bulk Upload Info Modal -->
+            <div id="bulkUploadResultModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 hidden">
+                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">
+                    <div id="bulkUploadResultIcon" class="text-5xl mb-3"></div>
+                    <h3 id="bulkUploadResultTitle" class="text-xl font-bold mb-2 text-gray-800"></h3>
+                    <p id="bulkUploadResultMsg" class="text-gray-600 text-sm mb-5"></p>
+                    <button onclick="document.getElementById('bulkUploadResultModal').classList.add('hidden'); loadRegisteredStudents();" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg font-semibold transition-all active:scale-95">
+                        OK
+                    </button>
+                </div>
+            </div>
+
+
+            <!-- Book Issue Page -->
+            <div id="book" class="page hidden animate-fade-in">
+                <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 md:mb-8 pb-4 border-b-2 border-purple-600">
+                    <h2 class="text-purple-600 text-2xl md:text-3xl flex items-center gap-2 mb-4 lg:mb-0">
+                        <i class="fas fa-calendar-plus"></i> Book New Issue
+                    </h2>
+                    <button class="bg-gradient-to-r from-gray-500 to-gray-600 border-none px-4 md:px-6 py-2 md:py-3 rounded-lg text-white cursor-pointer transition-all duration-300 flex items-center justify-center gap-2 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/20 back-btn active:scale-95 touch-manipulation text-sm md:text-base w-full sm:w-auto" data-target="home">
+                        <i class="fas fa-arrow-left"></i> <span class="hidden sm:inline">Back to</span> Home
+                    </button>
+                </div>
+                <div class="bg-white rounded-2xl p-4 md:p-6 lg:p-8 shadow-xl max-w-2xl mx-auto">
+                    
+                    <!-- AI Face Autofill Button -->
+                    <div class="flex justify-center mb-6">
+                        <button type="button" onclick="openAutoFillCameraModal()" class="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center gap-2 w-full sm:w-auto justify-center active:scale-95">
+                            <i class="fas fa-expand"></i> Scan Face to Auto-fill Details
+                        </button>
+                    </div>
+
+                    <!-- AI Face Autofill Modal -->
+                    <div id="autofillCameraModal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4 hidden">
+                        <div class="bg-white rounded-xl p-4 md:p-6 max-w-md w-full mx-4 shadow-2xl">
+                            <div class="text-center">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h3 class="text-lg font-semibold text-indigo-700"><i class="fas fa-expand"></i> AI Auto-fill</h3>
+                                    <button type="button" class="text-gray-500 hover:text-red-500 transition-colors" onclick="closeAutoFillCameraModal()">
+                                        <i class="fas fa-times text-xl"></i>
+                                    </button>
+                                </div>
+                                <div class="relative rounded-lg overflow-hidden bg-black aspect-video mb-4 flex items-center justify-center">
+                                    <video id="autofillVideo" class="w-full h-full object-cover hidden" autoplay muted playsinline></video>
+                                    <canvas id="autofillCanvas" class="absolute inset-0 w-full h-full object-cover pointer-events-none hidden"></canvas>
+                                    <div id="autofillStatusOverlay" class="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white">
+                                        <i class="fas fa-spinner fa-spin text-3xl mb-2"></i>
+                                        <span id="autofillStatusText" class="font-medium">Starting camera...</span>
+                                    </div>
+                                </div>
+                                <div class="flex gap-2 justify-center">
+                                    <button type="button" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-5 py-2 rounded-lg transition-all active:scale-95 w-full" onclick="closeAutoFillCameraModal()">
+                                        Cancel Scanning
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <form class="space-y-4 md:space-y-6" id="bookCaseForm">
+                        <!-- Profile Photo Upload Section -->
+                        <div class="flex flex-col gap-4 items-center">
+                            <label class="font-medium text-gray-700 text-lg">Take Photo</label>
+                            <div class="flex flex-col items-center gap-4">
+                                <!-- Profile Photo Display -->
+                                <div class="w-28 h-28 md:w-32 md:h-32 bg-gray-200 rounded-full border-4 border-purple-300 flex items-center justify-center overflow-hidden shadow-lg" id="profilePhotoContainer">
+                                    <img id="profilePhoto" class="w-full h-full object-cover hidden" alt="Profile Photo">
+                                    <div id="profilePlaceholder" class="text-gray-500 text-center">
+                                        <i class="fas fa-user text-2xl md:text-3xl mb-1 block"></i>
+                                        <span class="text-xs">No Photo</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Upload/Camera Buttons -->
+                                <div class="flex flex-wrap gap-2 md:gap-3 justify-center">
+                                    <button type="button" class="bg-blue-500 hover:bg-blue-600 text-white px-3 md:px-4 py-2 rounded-lg transition-all duration-300 flex items-center gap-2 shadow-md hover:shadow-lg active:scale-95 touch-manipulation text-sm md:text-base" onclick="document.getElementById('fileInput').click()">
+                                        <i class="fas fa-upload text-sm"></i> 
+                                        <span class="text-sm">Upload</span>
+                                    </button>
+                                    <button type="button" class="bg-green-500 hover:bg-green-600 text-white px-3 md:px-4 py-2 rounded-lg transition-all duration-300 flex items-center gap-2 shadow-md hover:shadow-lg active:scale-95 touch-manipulation text-sm md:text-base" onclick="openCamera()">
+                                        <i class="fas fa-camera text-sm"></i> 
+                                        <span class="text-sm">Camera</span>
+                                    </button>
+                                    <button type="button" class="bg-red-500 hover:bg-red-600 text-white px-3 md:px-4 py-2 rounded-lg transition-all duration-300 flex items-center gap-2 shadow-md hover:shadow-lg active:scale-95 touch-manipulation text-sm md:text-base" onclick="removePhoto()" id="removePhotoBtn" style="display: none;">
+                                        <i class="fas fa-trash text-sm"></i> 
+                                        <span class="text-sm">Remove</span>
+                                    </button>
+                                </div>
+                                
+                                <!-- Hidden File Input -->
+                                <input type="file" id="fileInput" accept="image/*" class="hidden" onchange="handleFileSelect(event)">
+                                
+                                <!-- Camera Modal -->
+                                <div id="cameraModal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4 hidden">
+                                    <div class="bg-white rounded-lg p-4 md:p-6 max-w-md w-full mx-4">
+                                        <div class="text-center">
+                                            <div class="flex justify-between items-center mb-4">
+                                                <h3 class="text-lg font-semibold">Take Photo</h3>
+                                                <button type="button" id="switchCameraBtn" class="bg-purple-500 hover:bg-purple-600 text-white px-3 py-1 rounded-lg transition-all duration-300 flex items-center gap-1 text-sm active:scale-95 touch-manipulation" onclick="switchCamera()">
+                                                    <i class="fas fa-sync-alt"></i> Switch
+                                                </button>
+                                            </div>
+                                            <div class="relative">
+                                                <video id="cameraVideo" width="280" height="210" autoplay class="rounded-lg border-2 border-gray-300 mb-4 mx-auto w-full max-w-xs"></video>
+                                                <div id="cameraStatus" class="absolute top-2 left-2 bg-black bg-opacity-60 text-white px-2 py-1 rounded text-xs">
+                                                    <span id="cameraLabel">Back Camera</span>
+                                                </div>
+                                            </div>
+                                            <canvas id="cameraCanvas" width="300" height="225" class="hidden"></canvas>
+                                            <div class="flex gap-2 md:gap-3 justify-center flex-wrap">
+                                                <button type="button" class="bg-blue-500 hover:bg-blue-600 text-white px-4 md:px-6 py-2 rounded-lg transition-all duration-300 flex items-center gap-2 active:scale-95 touch-manipulation" onclick="capturePhoto()">
+                                                    <i class="fas fa-camera"></i> Capture
+                                                </button>
+                                                <button type="button" class="bg-gray-500 hover:bg-gray-600 text-white px-4 md:px-6 py-2 rounded-lg transition-all duration-300 active:scale-95 touch-manipulation" onclick="closeCamera()">
+                                                    Cancel
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                            <div class="flex flex-col gap-2">
+                                <label for="studentName" class="font-medium text-gray-700">Name *</label>
+                                <input type="text" id="studentName" required placeholder="Enter full name" class="px-4 py-3 border border-gray-300 rounded-lg text-base transition-all duration-300 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 bg-purple-50 touch-manipulation">
+                            </div>
+                            
+                            <div class="flex flex-col gap-2">
+                                <label for="department" class="font-medium text-gray-700">Department *</label>
+                                <select id="department" required class="px-4 py-3 border border-gray-300 rounded-lg text-base transition-all duration-300 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 bg-purple-50 touch-manipulation">
+                                 <option value="" disabled selected>Select Department</option>
+            <option value="AERO">AERO</option>
+            <option value="AIDS">AIDS</option>
+            <option value="AIML">AIML</option>
+            <option value="CHEM">CHEM</option>
+            <option value="CIVIL">CIVIL</option>
+            <option value="CSBS">CSBS</option>
+            <option value="CSE">CSE</option>
+            <option value="ECE">ECE</option>
+            <option value="EEE">EEE</option>
+            <option value="IT">IT</option>
+            <option value="MBA">MBA</option>
+            <option value="MCA">MCA</option>
+            <option value="MCO">MCO</option>
+            <option value="MECH">MECH</option>
+            <option value="S&H V1">S&H V1</option>
+            <option value="S&H V2">S&H V2</option>
+            <option value="S&H V3">S&H V3</option>
+            <option value="S&H V4">S&H V4</option>
+            <option value="S&H V5">S&H V5</option>
+            <option value="S&H V6">S&H V6</option>
+          </select>
+                            </div>
+                            
+                            <div class="flex flex-col gap-2">
+                                <label for="year" class="font-medium text-gray-700">Year *</label>
+                                <select id="year" required class="px-4 py-3 border border-gray-300 rounded-lg text-base transition-all duration-300 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 bg-purple-50 touch-manipulation">
+                                    <option value="">Select Year</option>
+                                    <option value="1">1st Year</option>
+                                    <option value="2">2nd Year</option>
+                                    <option value="3">3rd Year</option>
+                                    <option value="4">4th Year</option>
+                                </select>
+                            </div>
+                            
+                            <div class="flex flex-col gap-2">
+                                <label for="section" class="font-medium text-gray-700">Section *</label>
+                                <select id="section" required class="px-4 py-3 border border-gray-300 rounded-lg text-base transition-all duration-300 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 bg-purple-50 touch-manipulation">
+                                    <option value="">Select Section</option>
+                                    <option value="A">Section A</option>
+                                    <option value="B">Section B</option>
+                                    <option value="C">Section C</option>
+                                    <option value="D">Section D</option>
+                                </select>
+                            </div>
+                            
+                            <div class="flex flex-col gap-2">
+                                <label for="regNo" class="font-medium text-gray-700">Registration No *</label>
+                                <input type="text" id="regNo" required placeholder="Enter reg no" class="px-4 py-3 border border-gray-300 rounded-lg text-base transition-all duration-300 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 bg-purple-50 touch-manipulation">
+                            </div>
+                            
+                            <div class="flex flex-col gap-2">
+                                <label for="parentNo" class="font-medium text-gray-700">Parent's Contact *</label>
+                                <input type="tel" id="parentNo" required placeholder="Enter parent's number" class="px-4 py-3 border border-gray-300 rounded-lg text-base transition-all duration-300 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 bg-purple-50 touch-manipulation">
+                            </div>
+                        </div>
+                        
+                        <div class="flex flex-col gap-2">
+                            <label for="caseDescription" class="font-medium text-gray-700">Issue Description *</label>
+                            <textarea id="caseDescription" rows="4" required placeholder="Describe the case in detail..." class="px-4 py-3 border border-gray-300 rounded-lg text-base transition-all duration-300 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 bg-purple-50 resize-none touch-manipulation"></textarea>
+                        </div>
+                        
+                        <div class="flex flex-col gap-2">
+                            <label for="casedBookBy" class="font-medium text-gray-700">Issue Booked By *</label>
+                            <input type="text" id="casedBookBy" required placeholder="Enter the name of person booking the case" class="px-4 py-3 border border-gray-300 rounded-lg text-base transition-all duration-300 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 bg-purple-50 touch-manipulation">
+                        </div>
+                        
+                        <button type="submit" class="bg-gradient-to-r from-orange-500 to-orange-600 border-none px-6 md:px-8 py-3 md:py-4 rounded-lg text-white text-lg font-semibold cursor-pointer transition-all duration-300 flex items-center justify-center gap-2 mt-6 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-orange-500/40 active:scale-95 touch-manipulation w-full">
+                            <i class="fas fa-paper-plane"></i>
+                            File Issue
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white py-2 mt-8">
+        <div class="max-w-6xl mx-auto px-4 md:px-8">
+            <div class="text-center text-black">
+                <div class="mb-2">
+                    <p class="text-sm md:text-base font-medium">
+                        © 2025 All Rights Reserved PMCTECH
+                    </p>
+                </div>
+                <div>
+                    <p class="text-xs md:text-sm opacity-80 flex items-center justify-center gap-2">
+                        Powered by 
+                        <a href="https://zeonytechnologies.com" target="_blank" rel="noopener noreferrer" class="inline-block hover:opacity-100 transition-all duration-300 hover:scale-105">
+                            <img src="img/zeony logo.png" alt="Zeony Technologies" class="h-14 w-30 ">
+                        </a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="face-logic.js"></script>
+    <script src="dashboard.js"></script>
+</body>
+</html>
