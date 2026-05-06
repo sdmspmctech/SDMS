@@ -143,28 +143,26 @@ backBtns.forEach(btn => {
 // Logout functionality
 async function handleLogout(e) {
     e.preventDefault();
-    
-    // Show confirmation dialog
-    if (confirm('Are you sure you want to logout?')) {
-        try {
-            // Use Supabase to sign out
-            const result = await AuthService.signOut();
-            
-            if (result.success) {
-                // Show logout message
-                showMessage('Logging out...', 'info');
-                
-                // Redirect to login page after a short delay
-                setTimeout(() => {
-                    window.location.href = 'index.html';
-                }, 1500);
-            } else {
-                showMessage('Error logging out. Please try again.', 'error');
-            }
-        } catch (error) {
-            console.error('Logout error:', error);
+    document.getElementById('logoutModal').classList.remove('hidden');
+}
+
+function closeLogoutModal() {
+    document.getElementById('logoutModal').classList.add('hidden');
+}
+
+async function executeLogout() {
+    closeLogoutModal();
+    try {
+        const result = await AuthService.signOut();
+        if (result.success) {
+            showMessage('Logging out...', 'info');
+            setTimeout(() => { window.location.href = 'index.html'; }, 1500);
+        } else {
             showMessage('Error logging out. Please try again.', 'error');
         }
+    } catch (error) {
+        console.error('Logout error:', error);
+        showMessage('Error logging out. Please try again.', 'error');
     }
 }
 
@@ -174,6 +172,12 @@ if (logoutBtn) {
 
 if (logoutBtnMobile) {
     logoutBtnMobile.addEventListener('click', handleLogout);
+}
+
+// Bind confirm button in logout modal
+const confirmLogoutBtn = document.getElementById('confirmLogoutBtn');
+if (confirmLogoutBtn) {
+    confirmLogoutBtn.addEventListener('click', executeLogout);
 }
 
 // Photo upload and camera functionality

@@ -5,6 +5,8 @@ let registerDescriptor = null;
 let registerPhoto = null;
 let registerStream = null;
 let autofillStream = null;
+let registerCameraMode = 'user';
+let autofillCameraMode = 'user';
 
 // Helper to play a warning beep sound
 function playBeep() {
@@ -27,11 +29,12 @@ function playBeep() {
     }
 }
 
-// Initialize models
+// Initialize models - Load BOTH for fallback
 async function initFaceAPI() {
     try {
         console.log("Loading Face API models...");
         await Promise.all([
+            faceapi.nets.tinyFaceDetector.loadFromUri('models'),
             faceapi.nets.ssdMobilenetv1.loadFromUri('models'),
             faceapi.nets.faceLandmark68Net.loadFromUri('models'),
             faceapi.nets.faceRecognitionNet.loadFromUri('models')
@@ -40,8 +43,17 @@ async function initFaceAPI() {
         console.log("Face API models loaded successfully.");
     } catch (error) {
         console.error("Error loading Face API models:", error);
-        if (window.location.protocol === 'file:') {
-            alert("Error: Face Recognition models cannot load when opening the HTML file directly (file://). Please use a local web server (like VS Code Live Server) to run this application.");
+        // Try loading only tiny model if full load fails
+        try {
+            await Promise.all([
+                faceapi.nets.tinyFaceDetector.loadFromUri('models'),
+                faceapi.nets.faceLandmark68Net.loadFromUri('models'),
+                faceapi.nets.faceRecognitionNet.loadFromUri('models')
+            ]);
+            modelsLoaded = true;
+            console.log("Loaded with TinyFaceDetector fallback.");
+        } catch (e2) {
+            console.error("All model loading failed:", e2);
         }
     }
 }
@@ -62,43 +74,66 @@ const registerFaceStatus = document.getElementById('registerFaceStatus');
 const saveStudentBtn = document.getElementById('saveStudentBtn');
 const registerStudentForm = document.getElementById('registerStudentForm');
 
-if (startRegisterCameraBtn) {
-    startRegisterCameraBtn.addEventListener('click', async () => {
-        if (!modelsLoaded) {
-            showMessage("Face recognition models are still loading. Please wait a moment.", "warning");
-            return;
-        }
+async function startRegisterCamera() {
+    if (!modelsLoaded) {
+        showMessage("Face recognition models are still loading. Please wait a moment.", "warning");
+        return;
+    }
 
-        try {
-            if (registerVideo.srcObject && registerVideo.paused) {
-                // We are retaking
-                registerVideo.play();
-                registerDescriptor = null;
-                registerPhoto = null;
-                startRegisterCameraBtn.classList.add('hidden');
-                captureRegisterFaceBtn.classList.remove('hidden');
-                saveStudentBtn.disabled = true;
-                
-                registerFaceStatus.textContent = "Camera active. Please face the camera clearly.";
-                registerFaceStatus.className = "mt-2 text-center text-sm font-medium p-2 rounded-lg w-full bg-blue-100 text-blue-800";
-                return;
-            }
-
-            registerStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
-            registerVideo.srcObject = registerStream;
-            registerVideo.classList.remove('hidden');
-            registerCameraPlaceholder.classList.add('hidden');
-            
+    try {
+        if (registerVideo.srcObject && registerVideo.paused) {
+            // We are retaking
+            registerVideo.play();
+            registerDescriptor = null;
+            registerPhoto = null;
             startRegisterCameraBtn.classList.add('hidden');
             captureRegisterFaceBtn.classList.remove('hidden');
+            saveStudentBtn.disabled = true;
             
             registerFaceStatus.textContent = "Camera active. Please face the camera clearly.";
             registerFaceStatus.className = "mt-2 text-center text-sm font-medium p-2 rounded-lg w-full bg-blue-100 text-blue-800";
-        } catch (err) {
-            console.error("Error accessing camera:", err);
-            showMessage("Could not access camera. Please allow camera permissions.", "error");
+            return;
         }
-    });
+
+        if (registerStream) {
+            registerStream.getTracks().forEach(track => track.stop());
+        }
+
+        registerStream = await navigator.mediaDevices.getUserMedia({ 
+            video: { 
+                facingMode: registerCameraMode,
+                width: { ideal: 640 },
+                height: { ideal: 480 }
+            } 
+        });
+        registerVideo.srcObject = registerStream;
+        registerVideo.classList.remove('hidden');
+        registerCameraPlaceholder.classList.add('hidden');
+        
+        startRegisterCameraBtn.classList.add('hidden');
+        captureRegisterFaceBtn.classList.remove('hidden');
+        
+        // Show switch button and label
+        document.getElementById('switchRegisterCameraBtn').classList.remove('hidden');
+        const label = document.getElementById('registerCameraLabel');
+        label.classList.remove('hidden');
+        label.textContent = registerCameraMode === 'user' ? 'Front' : 'Back';
+        
+        registerFaceStatus.textContent = "Camera active. Please face the camera clearly.";
+        registerFaceStatus.className = "mt-2 text-center text-sm font-medium p-2 rounded-lg w-full bg-blue-100 text-blue-800";
+    } catch (err) {
+        console.error("Error accessing camera:", err);
+        showMessage("Could not access camera. Please allow camera permissions.", "error");
+    }
+}
+
+async function toggleRegisterCameraMode() {
+    registerCameraMode = registerCameraMode === 'user' ? 'environment' : 'user';
+    await startRegisterCamera();
+}
+
+if (startRegisterCameraBtn) {
+    startRegisterCameraBtn.addEventListener('click', startRegisterCamera);
 }
 
 if (captureRegisterFaceBtn) {
@@ -110,10 +145,20 @@ if (captureRegisterFaceBtn) {
         registerFaceStatus.className = "mt-2 text-center text-sm font-medium p-2 rounded-lg w-full bg-yellow-100 text-yellow-800";
         
         try {
-            // Optimize for mobile by lowering confidence threshold slightly (default is 0.5)
-            const detection = await faceapi.detectSingleFace(registerVideo, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.4 }))
-                                           .withFaceLandmarks()
-                                           .withFaceDescriptor();
+            // Try TinyFaceDetector first (fast, mobile-optimized)
+            let detection = null;
+            try {
+                detection = await faceapi.detectSingleFace(registerVideo, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.3 }))
+                    .withFaceLandmarks()
+                    .withFaceDescriptor();
+            } catch (e) { /* fallback below */ }
+
+            // Fallback to SSD if Tiny failed
+            if (!detection) {
+                detection = await faceapi.detectSingleFace(registerVideo, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.3 }))
+                    .withFaceLandmarks()
+                    .withFaceDescriptor();
+            }
             
             if (detection) {
                 registerDescriptor = detection.descriptor;
@@ -182,12 +227,13 @@ if (registerStudentForm) {
                 
             if (fetchError) throw fetchError;
             
+            // Check for duplicate face using TinyFaceDetector first
             let duplicate = null;
             for (const s of allStudents) {
                 if (!s.face_descriptor || s.face_descriptor === '[]') continue;
                 const desc = new Float32Array(JSON.parse(s.face_descriptor));
                 const distance = faceapi.euclideanDistance(registerDescriptor, desc);
-                if (distance < 0.55) { // Slightly stricter threshold for registration
+                if (distance < 0.55) {
                     duplicate = s;
                     break;
                 }
@@ -254,38 +300,52 @@ let autofillInterval = null;
 
 async function openAutoFillCameraModal() {
     if (!modelsLoaded) {
-        showMessage("Face recognition models are still loading. Please wait.", "warning");
+        showMessage("AI models are still loading...", "warning");
         return;
     }
     
     autofillCameraModal.classList.remove('hidden');
-    autofillVideo.classList.remove('hidden');
     autofillStatusOverlay.classList.remove('hidden');
     autofillStatusText.textContent = "Starting camera...";
     
     try {
-        autofillStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        if (autofillStream) {
+            autofillStream.getTracks().forEach(track => track.stop());
+        }
+
+        autofillStream = await navigator.mediaDevices.getUserMedia({ 
+            video: { 
+                facingMode: autofillCameraMode,
+                width: { ideal: 640 },
+                height: { ideal: 480 }
+            } 
+        });
         autofillVideo.srcObject = autofillStream;
+        autofillVideo.classList.remove('hidden');
         
-        // Start scanning automatically once video starts playing
-        autofillVideo.onplay = () => {
-            startContinuousAutoFillScan();
+        // Show switch button and label
+        document.getElementById('switchAutofillCameraBtn').classList.remove('hidden');
+        const label = document.getElementById('autofillCameraLabel');
+        label.classList.remove('hidden');
+        label.textContent = autofillCameraMode === 'user' ? 'Front' : 'Back';
+
+        autofillVideo.onloadedmetadata = () => {
+            autofillStatusText.textContent = "Position your face clearly...";
+            setTimeout(() => {
+                autofillStatusOverlay.classList.add('hidden');
+                startContinuousAutoFillScan();
+            }, 1000);
         };
     } catch (err) {
-        console.error("Camera error:", err);
-        // Fallback to user camera if environment fails
-        try {
-            autofillStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
-            autofillVideo.srcObject = autofillStream;
-            
-            autofillVideo.onplay = () => {
-                startContinuousAutoFillScan();
-            };
-        } catch (fallbackErr) {
-            showMessage("Could not access camera. Please allow camera permissions.", "error");
-            closeAutoFillCameraModal();
-        }
+        console.error("Autofill camera error:", err);
+        autofillStatusText.textContent = "Camera access denied.";
+        setTimeout(closeAutoFillCameraModal, 2000);
     }
+}
+
+async function toggleAutofillCameraMode() {
+    autofillCameraMode = autofillCameraMode === 'user' ? 'environment' : 'user';
+    await openAutoFillCameraModal();
 }
 
 function closeAutoFillCameraModal() {
@@ -319,11 +379,20 @@ async function startContinuousAutoFillScan() {
         if (!autofillVideo.srcObject || autofillVideo.paused) return;
         
         try {
-            // Using a slightly lower confidence for real-time mobile scanning
-            const detection = await faceapi.detectSingleFace(autofillVideo, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.4 }))
-                                           .withFaceLandmarks()
-                                           .withFaceDescriptor();
-                                           
+            // Try TinyFaceDetector (fastest on mobile)
+            let detection = null;
+            try {
+                detection = await faceapi.detectSingleFace(autofillVideo, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.3 }))
+                    .withFaceLandmarks()
+                    .withFaceDescriptor();
+            } catch (e) { /* fallback */ }
+
+            // Fallback to SSD
+            if (!detection) {
+                detection = await faceapi.detectSingleFace(autofillVideo, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.3 }))
+                    .withFaceLandmarks()
+                    .withFaceDescriptor();
+            }
             if (detection) {
                 autofillStatusText.textContent = "Face detected! Matching...";
                 
@@ -732,3 +801,91 @@ function showBulkResult(icon, title, msg) {
     document.getElementById('bulkUploadResultModal').classList.remove('hidden');
 }
 
+
+// --- Reg Number Auto-Fill for Book New Issue ---
+let regNoLookupTimeout = null;
+
+async function lookupStudentByRegNo(regNoValue) {
+    const regNo = regNoValue.trim().toUpperCase();
+    if (!regNo || regNo.length < 3) return; // Don't search for very short strings
+
+    const statusEl = document.getElementById('regNoLookupStatus');
+    if (statusEl) {
+        statusEl.innerHTML = '<i class="fas fa-spinner fa-spin text-blue-500"></i> Looking up...';
+        statusEl.className = 'text-xs mt-1 text-blue-500 transition-all';
+    }
+
+    try {
+        const { data: students, error } = await window.supabaseClient
+            .from('students_data')
+            .select('*')
+            .ilike('reg_no', regNo)
+            .limit(1);
+
+        if (error || !students || students.length === 0) {
+            if (statusEl) {
+                statusEl.innerHTML = '<i class="fas fa-times-circle text-red-400"></i> Student not found';
+                statusEl.className = 'text-xs mt-1 text-red-500';
+            }
+            return;
+        }
+
+        const student = students[0];
+
+        // Fill form fields
+        const fieldMappings = {
+            'studentName': student.name,
+            'regNo': student.reg_no,
+            'department': student.department,
+            'year': student.year,
+            'section': student.section,
+            'parentNo': student.parent_no
+        };
+
+        for (const [id, value] of Object.entries(fieldMappings)) {
+            const el = document.getElementById(id);
+            if (el) {
+                el.value = value;
+                el.readOnly = true;
+                if (el.tagName === 'SELECT') {
+                    el.style.pointerEvents = 'none';
+                    el.tabIndex = -1;
+                }
+                el.classList.add('bg-gray-100');
+            }
+        }
+
+        // Fill photo
+        if (student.photo_base64) {
+            const profilePhoto = document.getElementById('profilePhoto');
+            const profilePlaceholder = document.getElementById('profilePlaceholder');
+            const removePhotoBtn = document.getElementById('removePhotoBtn');
+            if (profilePhoto) {
+                profilePhoto.src = student.photo_base64;
+                profilePhoto.classList.remove('hidden');
+            }
+            if (profilePlaceholder) profilePlaceholder.classList.add('hidden');
+            if (removePhotoBtn) removePhotoBtn.style.display = 'flex';
+            window.currentPhotoData = student.photo_base64;
+        }
+
+        if (statusEl) {
+            statusEl.innerHTML = `<i class="fas fa-check-circle text-green-500"></i> Found: <b>${student.name}</b> (${student.department})`;
+            statusEl.className = 'text-xs mt-1 text-green-600 font-medium';
+        }
+
+        showMessage(`Auto-filled details for ${student.name}`, 'success');
+
+    } catch (err) {
+        console.error('Reg no lookup error:', err);
+        if (statusEl) {
+            statusEl.innerHTML = '<i class="fas fa-exclamation-circle text-red-400"></i> Lookup failed';
+            statusEl.className = 'text-xs mt-1 text-red-500';
+        }
+    }
+}
+
+function onRegNoInput(input) {
+    clearTimeout(regNoLookupTimeout);
+    regNoLookupTimeout = setTimeout(() => lookupStudentByRegNo(input.value), 600);
+}

@@ -18,12 +18,17 @@
                     animation: {
                         'fade-in': 'fadeIn 0.5s ease-in',
                         'slide-in-right': 'slideInRight 0.5s ease-out',
-                        'slide-out-right': 'slideOutRight 0.5s ease-out'
+                        'slide-out-right': 'slideOutRight 0.5s ease-out',
+                        'zoom-in': 'zoomIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
                     },
                     keyframes: {
                         fadeIn: {
                             '0%': { opacity: '0', transform: 'translateY(20px)' },
                             '100%': { opacity: '1', transform: 'translateY(0)' }
+                        },
+                        zoomIn: {
+                            '0%': { opacity: '0', transform: 'scale(0.9)' },
+                            '100%': { opacity: '1', transform: 'scale(1)' }
                         },
                         slideInRight: {
                             '0%': { transform: 'translateX(100%)', opacity: '0' },
@@ -337,6 +342,10 @@
                                     <div class="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                                     <span class="text-white font-semibold mt-2 drop-shadow-md">Scanning Face...</span>
                                 </div>
+                                <button type="button" id="switchRegisterCameraBtn" class="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-95 hidden" onclick="toggleRegisterCameraMode()">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                                <div id="registerCameraLabel" class="absolute top-2 left-2 bg-black/50 text-white text-[10px] px-2 py-1 rounded-full uppercase font-bold tracking-wider hidden">Front</div>
                             </div>
                             <div class="flex gap-3 w-full justify-center">
                                 <button type="button" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg transition-all flex items-center gap-2 shadow-md active:scale-95" id="startRegisterCameraBtn">
@@ -615,6 +624,10 @@
                                         <i class="fas fa-spinner fa-spin text-3xl mb-2"></i>
                                         <span id="autofillStatusText" class="font-medium">Starting camera...</span>
                                     </div>
+                                    <button type="button" id="switchAutofillCameraBtn" class="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-95 hidden" onclick="toggleAutofillCameraMode()">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </button>
+                                    <div id="autofillCameraLabel" class="absolute top-2 left-2 bg-black/50 text-white text-[10px] px-2 py-1 rounded-full uppercase font-bold tracking-wider hidden">Front</div>
                                 </div>
                                 <div class="flex gap-2 justify-center">
                                     <button type="button" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-5 py-2 rounded-lg transition-all active:scale-95 w-full" onclick="closeAutoFillCameraModal()">
@@ -746,7 +759,8 @@
                             
                             <div class="flex flex-col gap-2">
                                 <label for="regNo" class="font-medium text-gray-700">Registration No *</label>
-                                <input type="text" id="regNo" required placeholder="Enter reg no" class="px-4 py-3 border border-gray-300 rounded-lg text-base transition-all duration-300 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 bg-purple-50 touch-manipulation">
+                                <input type="text" id="regNo" required placeholder="Enter reg no" class="px-4 py-3 border border-gray-300 rounded-lg text-base transition-all duration-300 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 bg-purple-50 touch-manipulation" oninput="onRegNoInput(this)">
+                                <div id="regNoLookupStatus" class="text-xs mt-1 text-gray-400"><i class="fas fa-info-circle"></i> Type reg number to auto-fill details</div>
                             </div>
                             
                             <div class="flex flex-col gap-2">
@@ -795,6 +809,28 @@
             </div>
         </div>
     </footer>
+
+    <!-- Logout Confirmation Modal -->
+    <div id="logoutModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4 hidden">
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-zoom-in">
+            <div class="p-8 text-center">
+                <div class="w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+                    <i class="fas fa-sign-out-alt text-3xl rotate-180"></i>
+                </div>
+                <h3 class="text-2xl font-bold text-gray-800 mb-2">Logout Warning</h3>
+                <p class="text-gray-500 mb-8 leading-relaxed">Are you sure you want to end your session and logout from the system?</p>
+                
+                <div class="flex flex-col gap-3">
+                    <button id="confirmLogoutBtn" class="w-full bg-gradient-to-r from-red-500 to-red-600 text-white font-bold py-3.5 rounded-2xl shadow-lg shadow-red-500/30 hover:shadow-red-500/40 hover:-translate-y-0.5 active:scale-95 transition-all">
+                        Yes, Logout
+                    </button>
+                    <button onclick="closeLogoutModal()" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3.5 rounded-2xl transition-all active:scale-95">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script src="face-logic.js"></script>
     <script src="dashboard.js"></script>
